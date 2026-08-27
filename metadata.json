@@ -1,0 +1,8 @@
+{
+  "name": "SABTAI STORE",
+  "description": "Premium Indian beauty & fashion e-commerce store selling Night Creams and Bangles.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
