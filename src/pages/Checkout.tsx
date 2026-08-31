@@ -23,8 +23,48 @@ export default function Checkout() {
     pincode: ''
   });
 
+  const [promoCode, setPromoCode] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<{code: string, discountAmount: number} | null>(null);
+  const [promoError, setPromoError] = useState('');
+
+  // Valid Promo Codes (You can add more influencers here)
+  const validPromoCodes: Record<string, { type: 'percentage' | 'flat', value: number }> = {
+    'SABTAI10': { type: 'percentage', value: 10 }, // 10% discount
+    'INFLUENCER10': { type: 'percentage', value: 10 }, // 10% discount
+    'FLAT50': { type: 'flat', value: 50 }, // Flat 50 Rupees discount
+  };
+
+  const handleApplyPromo = (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = promoCode.trim().toUpperCase();
+    if (!code) return;
+
+    if (validPromoCodes[code]) {
+      const promo = validPromoCodes[code];
+      const discount = promo.type === 'percentage' 
+        ? Math.round(cartTotal * (promo.value / 100))
+        : promo.value;
+      
+      // Ensure discount doesn't exceed cart total
+      const finalDiscount = Math.min(discount, cartTotal);
+      
+      setAppliedPromo({ code, discountAmount: finalDiscount });
+      setPromoError('');
+    } else {
+      setPromoError('Invalid coupon code');
+      setAppliedPromo(null);
+    }
+  };
+
+  const removePromo = () => {
+    setAppliedPromo(null);
+    setPromoCode('');
+    setPromoError('');
+  };
+
   const shippingCost = cartTotal >= 500 ? 0 : 99;
-  const finalTotal = cartTotal + shippingCost;
+  const discountAmount = appliedPromo ? appliedPromo.discountAmount : 0;
+  const finalTotal = Math.max(0, cartTotal + shippingCost - discountAmount);
 
   // Protect route
   React.useEffect(() => {
@@ -57,10 +97,11 @@ export default function Checkout() {
       formData.append('total amount', finalTotal.toString());
       formData.append('date&time', new Date().toLocaleString());
       formData.append('payment method', paymentMethod === 'Online' ? 'Prepaid' : 'COD');
+      formData.append('promo code', appliedPromo ? appliedPromo.code : 'None');
       if (paymentId) formData.append('payment_id', paymentId);
   
       try {
-        await fetch('https://script.google.com/macros/s/AKfycbyeMeF--O_n7cz1aAw6Aw4GtnCuhctdvmgrGbY6b0pwRSsIiKrlA6a0zhvW2JfbXVqY/exec', {
+        await fetch('https://script.google.com/macros/s/AKfycbxH7_8xCY6YLCLs1eTZmNvjL7PXTvN4E2o6UuYHMgagor3o6VZZn_wlNVcF0RVIg1Sc/exec', {
           method: 'POST',
           mode: 'no-cors',
           body: formData
@@ -311,6 +352,38 @@ export default function Checkout() {
             </div>
 
             <div className="space-y-3 pt-6 border-t border-stone-200 text-sm">
+              
+              {/* Promo Code Input */}
+              <div className="mb-4 pb-4 border-b border-stone-200">
+                {!appliedPromo ? (
+                  <form onSubmit={handleApplyPromo} className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Promo/Influencer Code"
+                      className="flex-1 border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:border-brand-900 uppercase"
+                      value={promoCode}
+                      onChange={(e) => setPromoCode(e.target.value)}
+                    />
+                    <button 
+                      type="submit"
+                      className="bg-stone-900 text-white px-4 py-2 text-sm font-medium hover:bg-stone-800 transition-colors"
+                    >
+                      Apply
+                    </button>
+                  </form>
+                ) : (
+                  <div className="flex justify-between items-center bg-green-50 text-green-700 px-3 py-2 border border-green-200 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold">{appliedPromo.code}</span> applied
+                    </div>
+                    <button onClick={removePromo} className="text-stone-500 hover:text-stone-900 underline text-xs">
+                      Remove
+                    </button>
+                  </div>
+                )}
+                {promoError && <p className="text-red-500 text-xs mt-2">{promoError}</p>}
+              </div>
+
               <div className="flex justify-between text-stone-600">
                 <span>Subtotal</span>
                 <span>{formatPrice(cartTotal)}</span>
@@ -319,6 +392,14 @@ export default function Checkout() {
                 <span>Shipping</span>
                 <span>{shippingCost === 0 ? 'Free' : formatPrice(shippingCost)}</span>
               </div>
+              
+              {appliedPromo && (
+                <div className="flex justify-between text-green-600 font-medium">
+                  <span>Discount ({appliedPromo.code})</span>
+                  <span>-{formatPrice(appliedPromo.discountAmount)}</span>
+                </div>
+              )}
+
               <div className="flex justify-between items-center pt-4 border-t border-stone-200 mt-2">
                 <span className="font-bold text-stone-900 uppercase">Total</span>
                 <span className="text-xl font-bold text-brand-900">{formatPrice(finalTotal)}</span>
